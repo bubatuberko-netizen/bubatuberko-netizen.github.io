@@ -1,354 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Wild West Zombie Shooter</title>
-
-<style>
-body { margin:0; overflow:hidden; background:black; font-family:sans-serif; }
-
-#menu {
-    position:absolute; width:100%; height:100%;
-    background:#7a5a3a;
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:center;
-    color:white;
-}
-
-button { padding:10px 20px; margin:10px; font-size:18px; cursor:pointer; }
-
-#settingsPanel { display:none; }
-
-canvas { display:none; image-rendering: pixelated; }
-
-#hud { position:absolute; top:10px; left:10px; color:white; display:none; }
-
-/* MOBILE */
-#mobileControls {
-    position:absolute;
-    width:100%; height:100%;
-    display:none;
-}
-
-.joystick {
-    position:absolute;
-    width:120px; height:120px;
-    border:2px solid white;
-    border-radius:50%;
-}
-
-.knob {
-    position:absolute;
-    width:50px; height:50px;
-    background:white;
-    border-radius:50%;
-    left:35px; top:35px;
-}
-
-#moveStick { bottom:20px; left:20px; }
-#aimStick { bottom:20px; right:20px; }
-
-#shootBtn {
-    position:absolute;
-    bottom:160px;
-    right:40px;
-    width:80px; height:80px;
-    background:red;
-    border-radius:50%;
-    color:white;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wild West Zombie Survival</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div id="game-wrapper">
+        <div id="menu-screen" class="screen active">
+            <h1 class="title">Wild West<br><span>Zombies</span></h1>
+            <div class="menu-box">
+                <input type="text" id="username" placeholder="Enter Cowboy Name" maxlength="12">
+                <button id="btn-start" class="btn">Start Survival</button>
+                <button id="btn-scores" class="btn">View Bounties</button>
+            </div>
+        </div>
 
-<div id="menu">
-    <h1>Wild West Zombie Shooter</h1>
-    <div id="mainMenu">
-        <button onclick="startGame()">Start</button>
-        <button onclick="openSettings()">Settings</button>
+        <div id="game-screen" class="screen">
+            <div id="hud">
+                <div>Bounty: $<span id="score-display">0</span></div>
+                <div>Name: <span id="player-name-display"></span></div>
+            </div>
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+        </div>
+
+        <div id="scoreboard-screen" class="screen">
+            <h1 class="title">Top Bounties</h1>
+            <div class="menu-box">
+                <ul id="score-list"></ul>
+                <button id="btn-back" class="btn">Back to Saloon</button>
+            </div>
+        </div>
     </div>
 
-    <div id="settingsPanel">
-        <h2>Settings</h2>
-        <label>
-            <input type="checkbox" id="mobileToggle">
-            Enable Mobile Controls
-        </label><br>
-        <button onclick="closeSettings()">Back</button>
-    </div>
-</div>
-
-<div id="hud">Score: <span id="score">0</span></div>
-<canvas id="gameCanvas"></canvas>
-
-<div id="mobileControls">
-    <div id="moveStick" class="joystick"><div class="knob"></div></div>
-    <div id="aimStick" class="joystick"><div class="knob"></div></div>
-    <div id="shootBtn">FIRE</div>
-</div>
-
-<script>
-class Game {
-    constructor(canvas, mobileEnabled) {
-        this.canvas = canvas;
-        this.ctx = canvas.getContext("2d");
-
-        this.mobile = mobileEnabled;
-
-        this.resize();
-        window.addEventListener("resize", ()=>this.resize());
-
-        this.player = new Player(this);
-        this.zombies = [];
-        this.bullets = [];
-        this.score = 0;
-
-        this.mouse = {x:0,y:0};
-
-        canvas.addEventListener("mousemove", e=>{
-            this.mouse.x = e.clientX;
-            this.mouse.y = e.clientY;
-        });
-
-        canvas.addEventListener("click", ()=>this.shoot());
-
-        if(this.mobile){
-            document.getElementById("mobileControls").style.display="block";
-            this.initMobile();
-        }
-
-        this.spawnTimer = 0;
-        requestAnimationFrame(()=>this.loop());
-    }
-
-    resize(){
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-    }
-
-    initMobile(){
-        const setup = (stick, cb)=>{
-            let active=false;
-
-            stick.addEventListener("touchstart", ()=>active=true);
-            stick.addEventListener("touchend", ()=>active=false);
-
-            stick.addEventListener("touchmove", e=>{
-                if(!active) return;
-                const r=stick.getBoundingClientRect();
-                const t=e.touches[0];
-                let dx=t.clientX-(r.left+60);
-                let dy=t.clientY-(r.top+60);
-                const d=Math.hypot(dx,dy);
-                if(d>50){ dx*=50/d; dy*=50/d; }
-                cb(dx/50,dy/50);
-            });
-        };
-
-        setup(document.getElementById("moveStick"),
-            (x,y)=>this.player.setMove(x,y));
-
-        setup(document.getElementById("aimStick"),
-            (x,y)=>this.player.setAim(x,y));
-
-        document.getElementById("shootBtn")
-            .addEventListener("touchstart", ()=>this.shoot());
-    }
-
-    spawnCircle(){
-        const count=8;
-        const r=300;
-        for(let i=0;i<count;i++){
-            const a=(Math.PI*2/count)*i;
-            this.zombies.push(
-                new Zombie(
-                    this,
-                    this.player.x+Math.cos(a)*r,
-                    this.player.y+Math.sin(a)*r
-                )
-            );
-        }
-    }
-
-    shoot(){
-        this.bullets.push(new Bullet(this.player.x,this.player.y,this.player.angle));
-    }
-
-    update(){
-        this.player.update();
-
-        this.bullets.forEach(b=>b.update());
-        this.zombies.forEach(z=>z.update());
-
-        this.bullets.forEach((b,bi)=>{
-            this.zombies.forEach((z,zi)=>{
-                if(b.hit(z)){
-                    this.bullets.splice(bi,1);
-                    this.zombies.splice(zi,1);
-                    this.score++;
-                    document.getElementById("score").textContent=this.score;
-                }
-            });
-        });
-
-        this.spawnTimer++;
-        if(this.spawnTimer>150){
-            this.spawnCircle();
-            this.spawnTimer=0;
-        }
-    }
-
-    drawBackground(){
-        const ctx=this.ctx;
-
-        // sand
-        ctx.fillStyle="#d2b48c";
-        ctx.fillRect(0,0,this.canvas.width,this.canvas.height);
-
-        // buildings (pixel style)
-        for(let i=0;i<8;i++){
-            let x=i*180;
-            ctx.fillStyle="#8b5a2b";
-            ctx.fillRect(x,120,120,100);
-            ctx.fillStyle="#5a3b1a";
-            ctx.fillRect(x,100,120,20);
-        }
-    }
-
-    draw(){
-        this.drawBackground();
-        this.player.draw(this.ctx);
-        this.bullets.forEach(b=>b.draw(this.ctx));
-        this.zombies.forEach(z=>z.draw(this.ctx));
-    }
-
-    loop(){
-        this.update();
-        this.draw();
-        requestAnimationFrame(()=>this.loop());
-    }
-}
-
-/* PLAYER (pixel cowboy) */
-class Player{
-    constructor(game){
-        this.game=game;
-        this.x=game.canvas.width/2;
-        this.y=game.canvas.height/2;
-        this.angle=0;
-        this.mx=0; this.my=0;
-    }
-
-    setMove(x,y){ this.mx=x; this.my=y; }
-    setAim(x,y){ this.angle=Math.atan2(y,x); }
-
-    update(){
-        if(!this.game.mobile){
-            const dx=this.game.mouse.x-this.x;
-            const dy=this.game.mouse.y-this.y;
-            this.angle=Math.atan2(dy,dx);
-        }
-
-        this.x+=this.mx*4;
-        this.y+=this.my*4;
-    }
-
-    draw(ctx){
-        ctx.save();
-        ctx.translate(this.x,this.y);
-        ctx.rotate(this.angle);
-
-        // cowboy pixel art
-        ctx.fillStyle="#1e90ff"; // shirt
-        ctx.fillRect(-8,-8,16,16);
-
-        ctx.fillStyle="#deb887"; // face
-        ctx.fillRect(-5,-14,10,6);
-
-        ctx.fillStyle="#654321"; // hat
-        ctx.fillRect(-10,-18,20,4);
-
-        ctx.fillStyle="black"; // gun
-        ctx.fillRect(8,-2,10,4);
-
-        ctx.restore();
-    }
-}
-
-/* ZOMBIE */
-class Zombie{
-    constructor(game,x,y){
-        this.game=game;
-        this.x=x;
-        this.y=y;
-        this.speed=1.2;
-    }
-
-    update(){
-        const dx=this.game.player.x-this.x;
-        const dy=this.game.player.y-this.y;
-        const d=Math.hypot(dx,dy);
-        this.x+=dx/d*this.speed;
-        this.y+=dy/d*this.speed;
-    }
-
-    draw(ctx){
-        ctx.fillStyle="#228B22";
-        ctx.fillRect(this.x-8,this.y-8,16,16);
-
-        ctx.fillStyle="red";
-        ctx.fillRect(this.x-4,this.y-4,3,3);
-        ctx.fillRect(this.x+1,this.y-4,3,3);
-    }
-}
-
-/* BULLET */
-class Bullet{
-    constructor(x,y,a){
-        this.x=x; this.y=y;
-        this.vx=Math.cos(a)*8;
-        this.vy=Math.sin(a)*8;
-    }
-
-    update(){ this.x+=this.vx; this.y+=this.vy; }
-
-    draw(ctx){
-        ctx.fillStyle="yellow";
-        ctx.fillRect(this.x-2,this.y-2,4,4);
-    }
-
-    hit(z){
-        return Math.hypot(this.x-z.x,this.y-z.y)<12;
-    }
-}
-
-/* MENU LOGIC */
-let mobileEnabled=false;
-
-function startGame(){
-    document.getElementById("menu").style.display="none";
-    const canvas=document.getElementById("gameCanvas");
-    canvas.style.display="block";
-    document.getElementById("hud").style.display="block";
-
-    new Game(canvas, mobileEnabled);
-}
-
-function openSettings(){
-    document.getElementById("mainMenu").style.display="none";
-    document.getElementById("settingsPanel").style.display="block";
-}
-
-function closeSettings(){
-    mobileEnabled = document.getElementById("mobileToggle").checked;
-
-    document.getElementById("settingsPanel").style.display="none";
-    document.getElementById("mainMenu").style.display="block";
-}
-</script>
-
+    <script src="script.js"></script>
 </body>
 </html>
