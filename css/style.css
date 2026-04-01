@@ -1,0 +1,147 @@
+/* Reset and Base Styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+body {
+    background-color: #2b1d14;
+    color: #f4e4bc;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#game-wrapper {
+    position: relative;
+    width: 800px;
+    height: 600px;
+    background-color: #c29b62;
+    border: 4px solid #5c3a21;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    overflow: hidden;
+}
+
+/* Screen Management */
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.screen.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Menu Styles */
+#menu-screen, #scoreboard-screen {
+    background: radial-gradient(circle, #8a5a33 0%, #3e2723 100%);
+}
+
+.title {
+    font-size: 48px;
+    text-transform: uppercase;
+    text-align: center;
+    text-shadow: 4px 4px #000;
+    margin-bottom: 40px;
+    color: #e8c07d;
+}
+
+.title span {
+    color: #5c8001; /* Zombie green */
+}
+
+.menu-box {
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 30px;
+    border: 2px solid #e8c07d;
+    border-radius: 8px;
+    text-align: center;
+    width: 400px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    font-size: 18px;
+    background-color: #f4e4bc;
+    border: 2px solid #5c3a21;
+    color: #2b1d14;
+    font-weight: bold;
+    text-align: center;
+}
+
+.btn {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    margin-bottom: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    text-transform: uppercase;
+    background-color: #5c3a21;
+    color: #e8c07d;
+    border: 2px solid #e8c07d;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn:hover {
+    background-color: #e8c07d;
+    color: #5c3a21;
+}
+
+/* Scoreboard Styles */
+#score-list {
+    list-style: none;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+#score-list li {
+    font-size: 18px;
+    padding: 8px;
+    border-bottom: 1px dashed #e8c07d;
+    display: flex;
+    justify-content: space-between;
+}
+
+#score-list li:first-child {
+    color: #ffd700;
+    font-weight: bold;
+    font-size: 22px;
+}
+
+/* HUD and Canvas */
+#hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 20px;
+    font-weight: bold;
+    color: #2b1d14;
+    text-shadow: 1px 1px #fff;
+    z-index: 10;
+}
+
+canvas {
+    display: block;
+}
