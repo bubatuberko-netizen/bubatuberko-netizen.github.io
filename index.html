@@ -3,42 +3,40 @@
 <head>
 <meta charset="UTF-8">
 <title>Wild West Zombie Shooter</title>
-<style>
-body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
 
-/* MENU */
+<style>
+body { margin:0; overflow:hidden; background:black; font-family:sans-serif; }
+
 #menu {
     position:absolute; width:100%; height:100%;
-    background:#6b4f2a;
+    background:#7a5a3a;
     display:flex; flex-direction:column;
     align-items:center; justify-content:center;
     color:white;
 }
+
 button { padding:10px 20px; margin:10px; font-size:18px; cursor:pointer; }
 
-/* CANVAS */
+#settingsPanel { display:none; }
+
 canvas { display:none; image-rendering: pixelated; }
 
-/* HUD */
 #hud { position:absolute; top:10px; left:10px; color:white; display:none; }
 
-/* SETTINGS */
-#settings { display:none; }
-
-/* MOBILE CONTROLS */
+/* MOBILE */
 #mobileControls {
     position:absolute;
     width:100%; height:100%;
-    pointer-events:none;
     display:none;
 }
+
 .joystick {
     position:absolute;
     width:120px; height:120px;
     border:2px solid white;
     border-radius:50%;
-    pointer-events:auto;
 }
+
 .knob {
     position:absolute;
     width:50px; height:50px;
@@ -46,6 +44,7 @@ canvas { display:none; image-rendering: pixelated; }
     border-radius:50%;
     left:35px; top:35px;
 }
+
 #moveStick { bottom:20px; left:20px; }
 #aimStick { bottom:20px; right:20px; }
 
@@ -60,8 +59,6 @@ canvas { display:none; image-rendering: pixelated; }
     display:flex;
     align-items:center;
     justify-content:center;
-    font-weight:bold;
-    pointer-events:auto;
 }
 </style>
 </head>
@@ -69,10 +66,13 @@ canvas { display:none; image-rendering: pixelated; }
 
 <div id="menu">
     <h1>Wild West Zombie Shooter</h1>
-    <button onclick="startGame()">Start</button>
-    <button onclick="openSettings()">Settings</button>
+    <div id="mainMenu">
+        <button onclick="startGame()">Start</button>
+        <button onclick="openSettings()">Settings</button>
+    </div>
 
-    <div id="settings">
+    <div id="settingsPanel">
+        <h2>Settings</h2>
         <label>
             <input type="checkbox" id="mobileToggle">
             Enable Mobile Controls
@@ -92,88 +92,97 @@ canvas { display:none; image-rendering: pixelated; }
 
 <script>
 class Game {
-    constructor(canvas) {
+    constructor(canvas, mobileEnabled) {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
+
+        this.mobile = mobileEnabled;
+
         this.resize();
+        window.addEventListener("resize", ()=>this.resize());
 
         this.player = new Player(this);
         this.zombies = [];
         this.bullets = [];
         this.score = 0;
 
-        this.mouse = {x:0, y:0};
-        this.mobile = false;
+        this.mouse = {x:0,y:0};
 
-        window.addEventListener("resize", ()=>this.resize());
         canvas.addEventListener("mousemove", e=>{
             this.mouse.x = e.clientX;
             this.mouse.y = e.clientY;
         });
+
         canvas.addEventListener("click", ()=>this.shoot());
 
-        this.initMobileControls();
+        if(this.mobile){
+            document.getElementById("mobileControls").style.display="block";
+            this.initMobile();
+        }
 
         this.spawnTimer = 0;
         requestAnimationFrame(()=>this.loop());
     }
 
-    resize() {
+    resize(){
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
     }
 
-    initMobileControls() {
-        const move = document.getElementById("moveStick");
-        const aim = document.getElementById("aimStick");
-        const shootBtn = document.getElementById("shootBtn");
+    initMobile(){
+        const setup = (stick, cb)=>{
+            let active=false;
 
-        const setupStick = (stick, callback) => {
-            let active = false;
             stick.addEventListener("touchstart", ()=>active=true);
             stick.addEventListener("touchend", ()=>active=false);
 
             stick.addEventListener("touchmove", e=>{
                 if(!active) return;
-                const rect = stick.getBoundingClientRect();
-                const touch = e.touches[0];
-                let dx = touch.clientX - (rect.left+60);
-                let dy = touch.clientY - (rect.top+60);
-                const dist = Math.hypot(dx,dy);
-                if(dist>50){ dx*=50/dist; dy*=50/dist; }
-                callback(dx/50, dy/50);
+                const r=stick.getBoundingClientRect();
+                const t=e.touches[0];
+                let dx=t.clientX-(r.left+60);
+                let dy=t.clientY-(r.top+60);
+                const d=Math.hypot(dx,dy);
+                if(d>50){ dx*=50/d; dy*=50/d; }
+                cb(dx/50,dy/50);
             });
         };
 
-        setupStick(move,(x,y)=>this.player.setMove(x,y));
-        setupStick(aim,(x,y)=>this.player.setAim(x,y));
+        setup(document.getElementById("moveStick"),
+            (x,y)=>this.player.setMove(x,y));
 
-        shootBtn.addEventListener("touchstart", ()=>this.shoot());
+        setup(document.getElementById("aimStick"),
+            (x,y)=>this.player.setAim(x,y));
+
+        document.getElementById("shootBtn")
+            .addEventListener("touchstart", ()=>this.shoot());
     }
 
-    spawnCircle() {
-        const count = 6;
-        const radius = 300;
-
+    spawnCircle(){
+        const count=8;
+        const r=300;
         for(let i=0;i<count;i++){
-            const angle = (Math.PI*2/count)*i;
-            const x = this.player.x + Math.cos(angle)*radius;
-            const y = this.player.y + Math.sin(angle)*radius;
-            this.zombies.push(new Zombie(this,x,y));
+            const a=(Math.PI*2/count)*i;
+            this.zombies.push(
+                new Zombie(
+                    this,
+                    this.player.x+Math.cos(a)*r,
+                    this.player.y+Math.sin(a)*r
+                )
+            );
         }
     }
 
-    shoot() {
-        this.bullets.push(new Bullet(this,this.player.x,this.player.y,this.player.angle));
+    shoot(){
+        this.bullets.push(new Bullet(this.player.x,this.player.y,this.player.angle));
     }
 
-    update() {
+    update(){
         this.player.update();
 
         this.bullets.forEach(b=>b.update());
         this.zombies.forEach(z=>z.update());
 
-        // collisions
         this.bullets.forEach((b,bi)=>{
             this.zombies.forEach((z,zi)=>{
                 if(b.hit(z)){
@@ -186,63 +195,65 @@ class Game {
         });
 
         this.spawnTimer++;
-        if(this.spawnTimer>120){
+        if(this.spawnTimer>150){
             this.spawnCircle();
             this.spawnTimer=0;
         }
     }
 
-    drawBackground() {
-        const ctx = this.ctx;
-        ctx.fillStyle="#c19a6b";
+    drawBackground(){
+        const ctx=this.ctx;
+
+        // sand
+        ctx.fillStyle="#d2b48c";
         ctx.fillRect(0,0,this.canvas.width,this.canvas.height);
 
-        // simple western houses
-        for(let i=0;i<10;i++){
+        // buildings (pixel style)
+        for(let i=0;i<8;i++){
+            let x=i*180;
             ctx.fillStyle="#8b5a2b";
-            ctx.fillRect(i*150,100,100,80);
+            ctx.fillRect(x,120,120,100);
             ctx.fillStyle="#5a3b1a";
-            ctx.fillRect(i*150,80,100,20);
+            ctx.fillRect(x,100,120,20);
         }
     }
 
-    draw() {
+    draw(){
         this.drawBackground();
-
         this.player.draw(this.ctx);
         this.bullets.forEach(b=>b.draw(this.ctx));
         this.zombies.forEach(z=>z.draw(this.ctx));
     }
 
-    loop() {
+    loop(){
         this.update();
         this.draw();
         requestAnimationFrame(()=>this.loop());
     }
 }
 
-class Player {
+/* PLAYER (pixel cowboy) */
+class Player{
     constructor(game){
         this.game=game;
         this.x=game.canvas.width/2;
         this.y=game.canvas.height/2;
         this.angle=0;
-        this.moveX=0;
-        this.moveY=0;
+        this.mx=0; this.my=0;
     }
 
-    setMove(x,y){ this.moveX=x; this.moveY=y; }
+    setMove(x,y){ this.mx=x; this.my=y; }
     setAim(x,y){ this.angle=Math.atan2(y,x); }
 
     update(){
         if(!this.game.mobile){
-            const dx = this.game.mouse.x - this.x;
-            const dy = this.game.mouse.y - this.y;
-            this.angle = Math.atan2(dy,dx);
+            const dx=this.game.mouse.x-this.x;
+            const dy=this.game.mouse.y-this.y;
+            this.angle=Math.atan2(dy,dx);
         }
 
-        this.x += this.moveX*4;
-        this.y += this.moveY*4;
+        this.x+=this.mx*4;
+        this.y+=this.my*4;
     }
 
     draw(ctx){
@@ -250,52 +261,59 @@ class Player {
         ctx.translate(this.x,this.y);
         ctx.rotate(this.angle);
 
-        // pixel cowboy
-        ctx.fillStyle="blue";
-        ctx.fillRect(-10,-10,20,20);
+        // cowboy pixel art
+        ctx.fillStyle="#1e90ff"; // shirt
+        ctx.fillRect(-8,-8,16,16);
 
-        ctx.fillStyle="brown";
-        ctx.fillRect(-15,-15,30,5);
+        ctx.fillStyle="#deb887"; // face
+        ctx.fillRect(-5,-14,10,6);
+
+        ctx.fillStyle="#654321"; // hat
+        ctx.fillRect(-10,-18,20,4);
+
+        ctx.fillStyle="black"; // gun
+        ctx.fillRect(8,-2,10,4);
 
         ctx.restore();
     }
 }
 
-class Zombie {
+/* ZOMBIE */
+class Zombie{
     constructor(game,x,y){
         this.game=game;
         this.x=x;
         this.y=y;
-        this.speed=1.5;
+        this.speed=1.2;
     }
 
     update(){
-        const dx = this.game.player.x - this.x;
-        const dy = this.game.player.y - this.y;
-        const dist = Math.hypot(dx,dy);
-        this.x += dx/dist*this.speed;
-        this.y += dy/dist*this.speed;
+        const dx=this.game.player.x-this.x;
+        const dy=this.game.player.y-this.y;
+        const d=Math.hypot(dx,dy);
+        this.x+=dx/d*this.speed;
+        this.y+=dy/d*this.speed;
     }
 
     draw(ctx){
-        ctx.fillStyle="green";
-        ctx.fillRect(this.x-10,this.y-10,20,20);
+        ctx.fillStyle="#228B22";
+        ctx.fillRect(this.x-8,this.y-8,16,16);
+
+        ctx.fillStyle="red";
+        ctx.fillRect(this.x-4,this.y-4,3,3);
+        ctx.fillRect(this.x+1,this.y-4,3,3);
     }
 }
 
-class Bullet {
-    constructor(game,x,y,angle){
-        this.x=x;
-        this.y=y;
-        this.speed=8;
-        this.vx=Math.cos(angle)*this.speed;
-        this.vy=Math.sin(angle)*this.speed;
+/* BULLET */
+class Bullet{
+    constructor(x,y,a){
+        this.x=x; this.y=y;
+        this.vx=Math.cos(a)*8;
+        this.vy=Math.sin(a)*8;
     }
 
-    update(){
-        this.x+=this.vx;
-        this.y+=this.vy;
-    }
+    update(){ this.x+=this.vx; this.y+=this.vy; }
 
     draw(ctx){
         ctx.fillStyle="yellow";
@@ -303,12 +321,12 @@ class Bullet {
     }
 
     hit(z){
-        return Math.hypot(this.x-z.x,this.y-z.y)<15;
+        return Math.hypot(this.x-z.x,this.y-z.y)<12;
     }
 }
 
-/* MENU */
-let game;
+/* MENU LOGIC */
+let mobileEnabled=false;
 
 function startGame(){
     document.getElementById("menu").style.display="none";
@@ -316,19 +334,19 @@ function startGame(){
     canvas.style.display="block";
     document.getElementById("hud").style.display="block";
 
-    game=new Game(canvas);
-
-    if(document.getElementById("mobileToggle").checked){
-        game.mobile=true;
-        document.getElementById("mobileControls").style.display="block";
-    }
+    new Game(canvas, mobileEnabled);
 }
 
 function openSettings(){
-    document.getElementById("settings").style.display="block";
+    document.getElementById("mainMenu").style.display="none";
+    document.getElementById("settingsPanel").style.display="block";
 }
+
 function closeSettings(){
-    document.getElementById("settings").style.display="none";
+    mobileEnabled = document.getElementById("mobileToggle").checked;
+
+    document.getElementById("settingsPanel").style.display="none";
+    document.getElementById("mainMenu").style.display="block";
 }
 </script>
 
