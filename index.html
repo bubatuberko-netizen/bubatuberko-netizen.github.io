@@ -1,39 +1,275 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wild West Zombie Survival</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>Wild West Zombie Shooter</title>
+<style>
+    body {
+        margin: 0;
+        font-family: monospace;
+        background: #1a120b;
+        color: #f5deb3;
+        overflow: hidden;
+    }
+
+    #menu, #scoreboard {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(#3b2a1a, #1a120b);
+        transition: opacity 0.5s;
+    }
+
+    h1 {
+        font-size: 48px;
+        margin-bottom: 20px;
+        text-shadow: 2px 2px #000;
+    }
+
+    input, button {
+        padding: 10px;
+        margin: 5px;
+        font-size: 16px;
+        border: none;
+        outline: none;
+    }
+
+    input {
+        background: #222;
+        color: white;
+    }
+
+    button {
+        background: #8b4513;
+        color: white;
+        cursor: pointer;
+        transition: transform 0.1s, background 0.2s;
+    }
+
+    button:hover {
+        background: #a0522d;
+        transform: scale(1.05);
+    }
+
+    canvas {
+        display: none;
+        background: #c2a57a;
+    }
+
+    #scoreDisplay {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-size: 20px;
+    }
+</style>
 </head>
 <body>
-    <div id="game-wrapper">
-        <div id="menu-screen" class="screen active">
-            <h1 class="title">Wild West<br><span>Zombies</span></h1>
-            <div class="menu-box">
-                <input type="text" id="username" placeholder="Enter Cowboy Name" maxlength="12">
-                <button id="btn-start" class="btn">Start Survival</button>
-                <button id="btn-scores" class="btn">View Bounties</button>
-            </div>
-        </div>
 
-        <div id="game-screen" class="screen">
-            <div id="hud">
-                <div>Bounty: $<span id="score-display">0</span></div>
-                <div>Name: <span id="player-name-display"></span></div>
-            </div>
-            <canvas id="gameCanvas" width="800" height="600"></canvas>
-        </div>
+<div id="menu">
+    <h1>🤠 Wild West Zombie Shooter</h1>
+    <input id="username" placeholder="Enter your name">
+    <button onclick="startGame()">Start Game</button>
+    <button onclick="showScores()">Scoreboard</button>
+    <button onclick="resetScores()">Reset Scores</button>
+</div>
 
-        <div id="scoreboard-screen" class="screen">
-            <h1 class="title">Top Bounties</h1>
-            <div class="menu-box">
-                <ul id="score-list"></ul>
-                <button id="btn-back" class="btn">Back to Saloon</button>
-            </div>
-        </div>
-    </div>
+<div id="scoreboard" style="display:none;">
+    <h1>🏆 Leaderboard</h1>
+    <div id="scores"></div>
+    <button onclick="backToMenu()">Back</button>
+</div>
 
-    <script src="script.js"></script>
+<canvas id="gameCanvas"></canvas>
+<div id="scoreDisplay"></div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let player, bullets, zombies, keys, mouse, score, gameRunning, spawnRate, username;
+
+document.getElementById("username").value = localStorage.getItem("username") || "";
+
+function startGame() {
+    username = document.getElementById("username").value.trim();
+    if (!username) return alert("Enter username!");
+
+    localStorage.setItem("username", username);
+
+    document.getElementById("menu").style.display = "none";
+    canvas.style.display = "block";
+
+    initGame();
+}
+
+function initGame() {
+    player = { x: canvas.width/2, y: canvas.height/2, size: 20, speed: 4 };
+    bullets = [];
+    zombies = [];
+    keys = {};
+    mouse = { x: 0, y: 0 };
+    score = 0;
+    spawnRate = 1000;
+    gameRunning = true;
+
+    gameLoop();
+    spawnZombies();
+}
+
+function gameLoop() {
+    if (!gameRunning) return;
+
+    update();
+    draw();
+
+    requestAnimationFrame(gameLoop);
+}
+
+function update() {
+    // Movement
+    if (keys["w"] || keys["ArrowUp"]) player.y -= player.speed;
+    if (keys["s"] || keys["ArrowDown"]) player.y += player.speed;
+    if (keys["a"] || keys["ArrowLeft"]) player.x -= player.speed;
+    if (keys["d"] || keys["ArrowRight"]) player.x += player.speed;
+
+    // Bullets
+    bullets.forEach((b, i) => {
+        b.x += b.dx;
+        b.y += b.dy;
+
+        if (b.x < 0 || b.y < 0 || b.x > canvas.width || b.y > canvas.height) {
+            bullets.splice(i, 1);
+        }
+    });
+
+    // Zombies
+    zombies.forEach((z, zi) => {
+        let dx = player.x - z.x;
+        let dy = player.y - z.y;
+        let dist = Math.hypot(dx, dy);
+
+        z.x += dx / dist * z.speed;
+        z.y += dy / dist * z.speed;
+
+        // Player collision
+        if (dist < player.size) {
+            gameOver();
+        }
+
+        // Bullet collision
+        bullets.forEach((b, bi) => {
+            let d = Math.hypot(b.x - z.x, b.y - z.y);
+            if (d < z.size) {
+                zombies.splice(zi, 1);
+                bullets.splice(bi, 1);
+                score++;
+            }
+        });
+    });
+
+    document.getElementById("scoreDisplay").innerText = "Score: " + score;
+}
+
+function draw() {
+    ctx.fillStyle = "#c2a57a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Player (cowboy)
+    ctx.fillStyle = "brown";
+    ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
+
+    // Bullets
+    ctx.fillStyle = "black";
+    bullets.forEach(b => ctx.fillRect(b.x, b.y, 5, 5));
+
+    // Zombies
+    ctx.fillStyle = "green";
+    zombies.forEach(z => ctx.fillRect(z.x - z.size/2, z.y - z.size/2, z.size, z.size));
+}
+
+function shoot(e) {
+    let angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+    bullets.push({
+        x: player.x,
+        y: player.y,
+        dx: Math.cos(angle) * 8,
+        dy: Math.sin(angle) * 8
+    });
+}
+
+function spawnZombies() {
+    if (!gameRunning) return;
+
+    let edge = Math.floor(Math.random() * 4);
+    let x, y;
+
+    if (edge === 0) { x = 0; y = Math.random() * canvas.height; }
+    if (edge === 1) { x = canvas.width; y = Math.random() * canvas.height; }
+    if (edge === 2) { x = Math.random() * canvas.width; y = 0; }
+    if (edge === 3) { x = Math.random() * canvas.width; y = canvas.height; }
+
+    zombies.push({
+        x, y,
+        size: 20,
+        speed: 1 + score * 0.05
+    });
+
+    spawnRate *= 0.99;
+    setTimeout(spawnZombies, spawnRate);
+}
+
+function gameOver() {
+    gameRunning = false;
+    saveScore();
+    canvas.style.display = "none";
+    document.getElementById("menu").style.display = "flex";
+}
+
+function saveScore() {
+    let scores = JSON.parse(localStorage.getItem("scores") || "[]");
+    scores.push({ name: username, score });
+    scores.sort((a,b)=>b.score-a.score);
+    scores = scores.slice(0,10);
+    localStorage.setItem("scores", JSON.stringify(scores));
+}
+
+function showScores() {
+    document.getElementById("menu").style.display = "none";
+    document.getElementById("scoreboard").style.display = "flex";
+
+    let scores = JSON.parse(localStorage.getItem("scores") || "[]");
+    let html = scores.map((s,i)=>`${i+1}. ${s.name} - ${s.score}`).join("<br>");
+    document.getElementById("scores").innerHTML = html;
+}
+
+function resetScores() {
+    localStorage.removeItem("scores");
+    alert("Scores reset!");
+}
+
+function backToMenu() {
+    document.getElementById("scoreboard").style.display = "none";
+    document.getElementById("menu").style.display = "flex";
+}
+
+window.addEventListener("keydown", e => keys[e.key] = true);
+window.addEventListener("keyup", e => keys[e.key] = false);
+
+window.addEventListener("mousemove", e => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+});
+
+window.addEventListener("click", shoot);
+</script>
+
 </body>
 </html>
