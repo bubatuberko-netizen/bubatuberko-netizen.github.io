@@ -1,0 +1,83 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wild West Game Menu</title>
+    <style>
+        /* Import a Western-style font */
+        @import url('https://googleapis.com');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #2c1b0e; /* Dark wood-like background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Rye', serif;
+        }
+
+        /* The Main Menu Board */
+        .menu-container {
+            background: #f4e4bc; /* Parchment color */
+            padding: 40px;
+            border: 15px solid #5d4037; /* Wooden frame */
+            box-shadow: 0 0 50px rgba(0,0,0,0.8), inset 0 0 100px rgba(0,0,0,0.2);
+            text-align: center;
+            border-radius: 5px;
+            position: relative;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #3e2723;
+            font-size: 3rem;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px #d7ccc8;
+            letter-spacing: 2px;
+        }
+
+        /* Wooden Buttons */
+        .menu-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 15px 0;
+            background: #8d6e63;
+            color: #fff;
+            border: 4px solid #4e342e;
+            font-family: 'Rye', serif;
+            font-size: 1.5rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px #3e2723;
+        }
+
+        .menu-btn:hover {
+            background: #a1887f;
+            transform: scale(1.05);
+            box-shadow: 0 6px #3e2723;
+        }
+
+        .menu-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 #3e2723;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="menu-container">
+        <h1>WANTED</h1>
+        <button class="menu-btn" onclick="console.log('Starting Game...')">New Game</button>
+        <button class="menu-btn" onclick="console.log('Loading...')">Load Bounty</button>
+        <button class="menu-btn" onclick="console.log('Settings...')">Options</button>
+        <button class="menu-btn" onclick="window.close()">Quit</button>
+    </div>
+
+</body>
+</html>
