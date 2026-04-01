@@ -2,85 +2,120 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Wild West Shooter</title>
+<title>Wild West Zombie Shooter</title>
 <style>
-    body {
-        margin: 0;
-        overflow: hidden;
-        font-family: Arial, sans-serif;
-        background: #222;
-        color: white;
-        text-align: center;
-    }
+body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
 
-    #menu {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(#c19a6b, #8b5a2b);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    }
+/* MENU */
+#menu {
+    position:absolute; width:100%; height:100%;
+    background:#6b4f2a;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    color:white;
+}
+button { padding:10px 20px; margin:10px; font-size:18px; cursor:pointer; }
 
-    #menu h1 {
-        font-size: 48px;
-        margin-bottom: 20px;
-    }
+/* CANVAS */
+canvas { display:none; image-rendering: pixelated; }
 
-    #menu button {
-        padding: 10px 20px;
-        font-size: 20px;
-        cursor: pointer;
-    }
+/* HUD */
+#hud { position:absolute; top:10px; left:10px; color:white; display:none; }
 
-    canvas {
-        display: none;
-        background: linear-gradient(#f4a460, #deb887);
-    }
+/* SETTINGS */
+#settings { display:none; }
 
-    #hud {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        display: none;
-    }
+/* MOBILE CONTROLS */
+#mobileControls {
+    position:absolute;
+    width:100%; height:100%;
+    pointer-events:none;
+    display:none;
+}
+.joystick {
+    position:absolute;
+    width:120px; height:120px;
+    border:2px solid white;
+    border-radius:50%;
+    pointer-events:auto;
+}
+.knob {
+    position:absolute;
+    width:50px; height:50px;
+    background:white;
+    border-radius:50%;
+    left:35px; top:35px;
+}
+#moveStick { bottom:20px; left:20px; }
+#aimStick { bottom:20px; right:20px; }
+
+#shootBtn {
+    position:absolute;
+    bottom:160px;
+    right:40px;
+    width:80px; height:80px;
+    background:red;
+    border-radius:50%;
+    color:white;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    pointer-events:auto;
+}
 </style>
 </head>
 <body>
 
 <div id="menu">
-    <h1>Wild West Shooter</h1>
-    <button onclick="startGame()">Start Game</button>
+    <h1>Wild West Zombie Shooter</h1>
+    <button onclick="startGame()">Start</button>
+    <button onclick="openSettings()">Settings</button>
+
+    <div id="settings">
+        <label>
+            <input type="checkbox" id="mobileToggle">
+            Enable Mobile Controls
+        </label><br>
+        <button onclick="closeSettings()">Back</button>
+    </div>
 </div>
 
 <div id="hud">Score: <span id="score">0</span></div>
 <canvas id="gameCanvas"></canvas>
+
+<div id="mobileControls">
+    <div id="moveStick" class="joystick"><div class="knob"></div></div>
+    <div id="aimStick" class="joystick"><div class="knob"></div></div>
+    <div id="shootBtn">FIRE</div>
+</div>
 
 <script>
 class Game {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
-
         this.resize();
-        window.addEventListener("resize", () => this.resize());
 
         this.player = new Player(this);
+        this.zombies = [];
         this.bullets = [];
-        this.enemies = [];
         this.score = 0;
 
-        this.lastSpawn = 0;
+        this.mouse = {x:0, y:0};
+        this.mobile = false;
 
-        this.keys = {};
-        window.addEventListener("keydown", e => this.keys[e.key] = true);
-        window.addEventListener("keyup", e => this.keys[e.key] = false);
+        window.addEventListener("resize", ()=>this.resize());
+        canvas.addEventListener("mousemove", e=>{
+            this.mouse.x = e.clientX;
+            this.mouse.y = e.clientY;
+        });
+        canvas.addEventListener("click", ()=>this.shoot());
 
-        canvas.addEventListener("click", () => this.shoot());
+        this.initMobileControls();
 
-        this.loop = this.loop.bind(this);
+        this.spawnTimer = 0;
+        requestAnimationFrame(()=>this.loop());
     }
 
     resize() {
@@ -88,153 +123,212 @@ class Game {
         this.canvas.height = window.innerHeight;
     }
 
+    initMobileControls() {
+        const move = document.getElementById("moveStick");
+        const aim = document.getElementById("aimStick");
+        const shootBtn = document.getElementById("shootBtn");
+
+        const setupStick = (stick, callback) => {
+            let active = false;
+            stick.addEventListener("touchstart", ()=>active=true);
+            stick.addEventListener("touchend", ()=>active=false);
+
+            stick.addEventListener("touchmove", e=>{
+                if(!active) return;
+                const rect = stick.getBoundingClientRect();
+                const touch = e.touches[0];
+                let dx = touch.clientX - (rect.left+60);
+                let dy = touch.clientY - (rect.top+60);
+                const dist = Math.hypot(dx,dy);
+                if(dist>50){ dx*=50/dist; dy*=50/dist; }
+                callback(dx/50, dy/50);
+            });
+        };
+
+        setupStick(move,(x,y)=>this.player.setMove(x,y));
+        setupStick(aim,(x,y)=>this.player.setAim(x,y));
+
+        shootBtn.addEventListener("touchstart", ()=>this.shoot());
+    }
+
+    spawnCircle() {
+        const count = 6;
+        const radius = 300;
+
+        for(let i=0;i<count;i++){
+            const angle = (Math.PI*2/count)*i;
+            const x = this.player.x + Math.cos(angle)*radius;
+            const y = this.player.y + Math.sin(angle)*radius;
+            this.zombies.push(new Zombie(this,x,y));
+        }
+    }
+
     shoot() {
-        this.bullets.push(new Bullet(this, this.player.x, this.player.y));
+        this.bullets.push(new Bullet(this,this.player.x,this.player.y,this.player.angle));
     }
 
-    spawnEnemy() {
-        this.enemies.push(new Enemy(this));
-    }
+    update() {
+        this.player.update();
 
-    update(delta) {
-        this.player.update(this.keys);
+        this.bullets.forEach(b=>b.update());
+        this.zombies.forEach(z=>z.update());
 
-        this.bullets.forEach(b => b.update());
-        this.enemies.forEach(e => e.update());
-
-        // Collision
-        this.bullets.forEach((b, bi) => {
-            this.enemies.forEach((e, ei) => {
-                if (b.collides(e)) {
-                    this.bullets.splice(bi, 1);
-                    this.enemies.splice(ei, 1);
+        // collisions
+        this.bullets.forEach((b,bi)=>{
+            this.zombies.forEach((z,zi)=>{
+                if(b.hit(z)){
+                    this.bullets.splice(bi,1);
+                    this.zombies.splice(zi,1);
                     this.score++;
-                    document.getElementById("score").textContent = this.score;
+                    document.getElementById("score").textContent=this.score;
                 }
             });
         });
 
-        // Remove off-screen bullets
-        this.bullets = this.bullets.filter(b => b.y > 0);
+        this.spawnTimer++;
+        if(this.spawnTimer>120){
+            this.spawnCircle();
+            this.spawnTimer=0;
+        }
+    }
 
-        // Spawn enemies
-        if (Date.now() - this.lastSpawn > 1000) {
-            this.spawnEnemy();
-            this.lastSpawn = Date.now();
+    drawBackground() {
+        const ctx = this.ctx;
+        ctx.fillStyle="#c19a6b";
+        ctx.fillRect(0,0,this.canvas.width,this.canvas.height);
+
+        // simple western houses
+        for(let i=0;i<10;i++){
+            ctx.fillStyle="#8b5a2b";
+            ctx.fillRect(i*150,100,100,80);
+            ctx.fillStyle="#5a3b1a";
+            ctx.fillRect(i*150,80,100,20);
         }
     }
 
     draw() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.drawBackground();
 
         this.player.draw(this.ctx);
-        this.bullets.forEach(b => b.draw(this.ctx));
-        this.enemies.forEach(e => e.draw(this.ctx));
+        this.bullets.forEach(b=>b.draw(this.ctx));
+        this.zombies.forEach(z=>z.draw(this.ctx));
     }
 
     loop() {
         this.update();
         this.draw();
-        requestAnimationFrame(this.loop);
-    }
-
-    start() {
-        this.loop();
+        requestAnimationFrame(()=>this.loop());
     }
 }
 
 class Player {
-    constructor(game) {
-        this.game = game;
-        this.x = game.canvas.width / 2;
-        this.y = game.canvas.height - 60;
-        this.speed = 5;
-        this.size = 30;
+    constructor(game){
+        this.game=game;
+        this.x=game.canvas.width/2;
+        this.y=game.canvas.height/2;
+        this.angle=0;
+        this.moveX=0;
+        this.moveY=0;
     }
 
-    update(keys) {
-        if (keys["a"] || keys["ArrowLeft"]) this.x -= this.speed;
-        if (keys["d"] || keys["ArrowRight"]) this.x += this.speed;
+    setMove(x,y){ this.moveX=x; this.moveY=y; }
+    setAim(x,y){ this.angle=Math.atan2(y,x); }
 
-        // Clamp
-        this.x = Math.max(this.size, Math.min(this.game.canvas.width - this.size, this.x));
+    update(){
+        if(!this.game.mobile){
+            const dx = this.game.mouse.x - this.x;
+            const dy = this.game.mouse.y - this.y;
+            this.angle = Math.atan2(dy,dx);
+        }
+
+        this.x += this.moveX*4;
+        this.y += this.moveY*4;
     }
 
-    draw(ctx) {
-        ctx.fillStyle = "brown";
-        ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+    draw(ctx){
+        ctx.save();
+        ctx.translate(this.x,this.y);
+        ctx.rotate(this.angle);
 
-        // simple hat animation
-        ctx.fillStyle = "black";
-        ctx.fillRect(this.x - 15, this.y - 25, 30, 10);
+        // pixel cowboy
+        ctx.fillStyle="blue";
+        ctx.fillRect(-10,-10,20,20);
+
+        ctx.fillStyle="brown";
+        ctx.fillRect(-15,-15,30,5);
+
+        ctx.restore();
+    }
+}
+
+class Zombie {
+    constructor(game,x,y){
+        this.game=game;
+        this.x=x;
+        this.y=y;
+        this.speed=1.5;
+    }
+
+    update(){
+        const dx = this.game.player.x - this.x;
+        const dy = this.game.player.y - this.y;
+        const dist = Math.hypot(dx,dy);
+        this.x += dx/dist*this.speed;
+        this.y += dy/dist*this.speed;
+    }
+
+    draw(ctx){
+        ctx.fillStyle="green";
+        ctx.fillRect(this.x-10,this.y-10,20,20);
     }
 }
 
 class Bullet {
-    constructor(game, x, y) {
-        this.game = game;
-        this.x = x;
-        this.y = y;
-        this.speed = 7;
-        this.size = 5;
+    constructor(game,x,y,angle){
+        this.x=x;
+        this.y=y;
+        this.speed=8;
+        this.vx=Math.cos(angle)*this.speed;
+        this.vy=Math.sin(angle)*this.speed;
     }
 
-    update() {
-        this.y -= this.speed;
+    update(){
+        this.x+=this.vx;
+        this.y+=this.vy;
     }
 
-    draw(ctx) {
-        ctx.fillStyle = "yellow";
-        ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+    draw(ctx){
+        ctx.fillStyle="yellow";
+        ctx.fillRect(this.x-2,this.y-2,4,4);
     }
 
-    collides(enemy) {
-        return (
-            this.x < enemy.x + enemy.size &&
-            this.x > enemy.x - enemy.size &&
-            this.y < enemy.y + enemy.size &&
-            this.y > enemy.y - enemy.size
-        );
+    hit(z){
+        return Math.hypot(this.x-z.x,this.y-z.y)<15;
     }
 }
 
-class Enemy {
-    constructor(game) {
-        this.game = game;
-        this.size = 30;
-        this.x = Math.random() * game.canvas.width;
-        this.y = -this.size;
-        this.speed = 2 + Math.random() * 2;
-    }
-
-    update() {
-        this.y += this.speed;
-    }
-
-    draw(ctx) {
-        ctx.fillStyle = "darkred";
-        ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
-
-        // simple animation (eyes)
-        ctx.fillStyle = "white";
-        ctx.fillRect(this.x - 10, this.y - 5, 5, 5);
-        ctx.fillRect(this.x + 5, this.y - 5, 5, 5);
-    }
-}
-
-// Game control
+/* MENU */
 let game;
 
-function startGame() {
-    document.getElementById("menu").style.display = "none";
-    const canvas = document.getElementById("gameCanvas");
-    const hud = document.getElementById("hud");
+function startGame(){
+    document.getElementById("menu").style.display="none";
+    const canvas=document.getElementById("gameCanvas");
+    canvas.style.display="block";
+    document.getElementById("hud").style.display="block";
 
-    canvas.style.display = "block";
-    hud.style.display = "block";
+    game=new Game(canvas);
 
-    game = new Game(canvas);
-    game.start();
+    if(document.getElementById("mobileToggle").checked){
+        game.mobile=true;
+        document.getElementById("mobileControls").style.display="block";
+    }
+}
+
+function openSettings(){
+    document.getElementById("settings").style.display="block";
+}
+function closeSettings(){
+    document.getElementById("settings").style.display="none";
 }
 </script>
 
