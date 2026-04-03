@@ -1,0 +1,437 @@
+/* ===================================================
+   Dusty Duel — Wild West Arena Shooter
+   Complete CSS with animated menu, Wild West theme
+   =================================================== */
+
+/* ---------- Reset & Base ---------- */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --sand:        #e8c872;
+  --sand-dark:   #c9a84c;
+  --leather:     #8b5e3c;
+  --leather-dk:  #5c3a1e;
+  --wood:        #a0744f;
+  --rust:        #b7410e;
+  --cream:       #faf0d7;
+  --gold:        #ffd700;
+  --dust:        rgba(210,180,120,0.25);
+  --blood:       #cc2222;
+  --bg:          #2b1a0e;
+  --text:        #faf0d7;
+}
+
+@font-face {
+  font-family: 'WesternFallback';
+  src: local('Georgia'), local('Times New Roman');
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: Georgia, 'Times New Roman', serif;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---------- Screens ---------- */
+.screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity 0.4s ease;
+}
+.screen.hidden  { display: none; opacity: 0; }
+.screen.active  { opacity: 1; }
+
+/* ---------- Animated Background Layers ---------- */
+.dust-layer {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 80%, rgba(210,170,100,0.3) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 20%, rgba(180,120,50,0.2) 0%, transparent 50%),
+    linear-gradient(180deg, #4a2e14 0%, #8b5e3c 40%, #c9a84c 75%, #e8c872 100%);
+  z-index: 0;
+}
+
+/* Floating clouds */
+.cloud {
+  position: absolute;
+  width: 200px; height: 60px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 50%;
+  filter: blur(12px);
+  z-index: 1;
+  animation: drift linear infinite;
+}
+.cloud-1 { top: 8%;  left: -200px; animation-duration: 28s; width: 260px; height: 70px; }
+.cloud-2 { top: 18%; left: -200px; animation-duration: 36s; animation-delay: 8s; opacity: 0.7; }
+.cloud-3 { top: 12%; left: -200px; animation-duration: 22s; animation-delay: 14s; width: 180px; }
+
+@keyframes drift {
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(100vw + 300px)); }
+}
+
+/* ---------- Menu Content ---------- */
+.menu-content {
+  position: relative; z-index: 2;
+  text-align: center;
+}
+
+.game-title {
+  font-size: clamp(3rem, 8vw, 6rem);
+  color: var(--gold);
+  text-shadow:
+    3px 3px 0 var(--leather-dk),
+    6px 6px 8px rgba(0,0,0,0.5);
+  letter-spacing: 4px;
+  animation: titlePulse 3s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.03); }
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: var(--sand);
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  margin-top: 0.4rem;
+  opacity: 0.8;
+}
+
+/* ---------- Buttons ---------- */
+.menu-buttons {
+  margin-top: 2.5rem;
+  display: flex; flex-direction: column;
+  gap: 0.8rem; align-items: center;
+}
+
+.menu-btn {
+  font-family: Georgia, serif;
+  font-size: 1.25rem;
+  padding: 0.75rem 2.5rem;
+  min-width: 220px;
+  border: 2px solid var(--sand-dark);
+  background: linear-gradient(180deg, var(--leather) 0%, var(--leather-dk) 100%);
+  color: var(--cream);
+  border-radius: 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+}
+.menu-btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,215,0,0.15), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.4s;
+}
+.menu-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  border-color: var(--gold);
+}
+.menu-btn:hover::before { transform: translateX(100%); }
+.menu-btn:active { transform: translateY(1px); box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+
+.menu-btn.small { font-size: 1rem; padding: 0.6rem 1.8rem; min-width: 160px; }
+.menu-btn.secondary {
+  background: linear-gradient(180deg, #5a3f2b, #3a2515);
+  border-color: var(--leather);
+}
+
+/* ---------- Modal ---------- */
+.modal {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+}
+.modal.hidden { display: none; }
+.modal-box {
+  background: linear-gradient(180deg, #5c3a1e, #3a2010);
+  border: 2px solid var(--sand-dark);
+  border-radius: 10px;
+  padding: 2rem 2.5rem;
+  text-align: center;
+  min-width: 320px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+  animation: modalIn 0.3s ease-out;
+}
+@keyframes modalIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.modal-box h2 {
+  color: var(--gold);
+  margin-bottom: 1rem;
+  font-size: 1.4rem;
+}
+.modal-box input {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  font-size: 1.1rem;
+  font-family: Georgia, serif;
+  background: var(--bg);
+  border: 2px solid var(--leather);
+  border-radius: 6px;
+  color: var(--cream);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.modal-box input:focus { border-color: var(--gold); }
+.modal-actions {
+  margin-top: 1.2rem;
+  display: flex; gap: 0.8rem; justify-content: center;
+}
+.error-text { color: var(--rust); font-size: 0.85rem; margin-top: 0.5rem; }
+.error-text.hidden { display: none; }
+
+/* ---------- Class Selection ---------- */
+.screen-title {
+  position: relative; z-index: 2;
+  font-size: 2rem;
+  color: var(--gold);
+  text-shadow: 2px 2px 0 var(--leather-dk);
+  margin-bottom: 1.5rem;
+}
+
+.class-cards {
+  position: relative; z-index: 2;
+  display: flex; gap: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.class-card {
+  background: linear-gradient(180deg, rgba(92,58,30,0.9), rgba(43,26,14,0.95));
+  border: 2px solid var(--leather);
+  border-radius: 10px;
+  padding: 1.5rem 1.2rem;
+  width: 220px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.class-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--sand);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+}
+.class-card.selected {
+  border-color: var(--gold);
+  box-shadow: 0 0 20px rgba(255,215,0,0.3);
+}
+.class-card h3 {
+  color: var(--gold);
+  font-size: 1.3rem;
+  margin: 0.6rem 0 0.3rem;
+}
+.class-card p {
+  font-size: 0.85rem;
+  color: var(--sand);
+  margin-bottom: 0.8rem;
+}
+
+/* Class icons — procedural with CSS shapes */
+.class-icon {
+  width: 64px; height: 64px;
+  margin: 0 auto;
+  border-radius: 50%;
+  position: relative;
+}
+.gunslinger-icon {
+  background: radial-gradient(circle, var(--sand) 40%, var(--leather) 100%);
+  box-shadow: 0 0 12px rgba(232,200,114,0.5);
+}
+.gunslinger-icon::after {
+  content: '\u2726'; font-size: 2rem; color: var(--leather-dk);
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.sheriff-icon {
+  background: radial-gradient(circle, var(--gold) 40%, var(--rust) 100%);
+  box-shadow: 0 0 12px rgba(255,215,0,0.4);
+}
+.sheriff-icon::after {
+  content: '\u2605'; font-size: 2.2rem; color: var(--leather-dk);
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.outlaw-icon {
+  background: radial-gradient(circle, #cc4444 40%, #440000 100%);
+  box-shadow: 0 0 12px rgba(200,50,50,0.4);
+}
+.outlaw-icon::after {
+  content: '\u2620'; font-size: 2rem;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Stat bars */
+.stat-bars { display: flex; flex-direction: column; gap: 4px; }
+.stat {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;
+}
+.stat span { width: 30px; text-align: right; color: var(--sand); }
+.bar {
+  flex: 1; height: 8px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 4px; overflow: hidden;
+}
+.bar .fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--sand));
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+/* ---------- Leaderboard ---------- */
+#leaderboard-table-wrap {
+  position: relative; z-index: 2;
+  width: min(500px, 90vw);
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+}
+#leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+#leaderboard-table th {
+  background: var(--leather-dk);
+  color: var(--gold);
+  padding: 0.6rem 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.8rem;
+  position: sticky; top: 0;
+}
+#leaderboard-table td {
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  text-align: center;
+}
+#leaderboard-table tbody tr:nth-child(odd) { background: rgba(255,255,255,0.03); }
+#leaderboard-table tbody tr:first-child td { color: var(--gold); font-weight: bold; }
+#leaderboard-empty {
+  text-align: center;
+  color: var(--sand);
+  padding: 2rem;
+  font-style: italic;
+}
+
+/* ---------- Game Screen ---------- */
+#game-screen { background: #000; }
+
+#game-canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  image-rendering: pixelated;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: linear-gradient(180deg, rgba(43,26,14,0.85), rgba(43,26,14,0));
+  z-index: 10;
+  pointer-events: none;
+}
+#hud-left, #hud-center, #hud-right {
+  display: flex; align-items: center; gap: 10px;
+}
+#hud-right { flex-direction: column; align-items: flex-end; gap: 2px; }
+
+#hud-class-name {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--sand);
+}
+#hud-health-wrap {
+  display: flex; align-items: center; gap: 8px;
+}
+#hud-health-bar {
+  width: 160px; height: 14px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--leather);
+  border-radius: 3px;
+  overflow: hidden;
+}
+#hud-health-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, var(--blood), #44bb44);
+  transition: width 0.2s;
+}
+#hud-health-text { font-size: 0.8rem; color: var(--cream); }
+#hud-username { font-size: 1rem; color: var(--gold); letter-spacing: 2px; }
+#hud-score { font-size: 1rem; color: var(--cream); }
+#hud-wave  { font-size: 0.8rem; color: var(--sand); }
+
+/* Screen shake */
+.shake {
+  animation: shakeAnim 0.15s ease-out;
+}
+@keyframes shakeAnim {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(-4px, 2px); }
+  50%  { transform: translate(4px, -2px); }
+  75%  { transform: translate(-2px, 4px); }
+  100% { transform: translate(0, 0); }
+}
+
+/* ---------- Death Overlay ---------- */
+#death-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 20;
+  backdrop-filter: blur(3px);
+}
+#death-overlay.hidden { display: none; }
+.death-box {
+  text-align: center;
+  animation: modalIn 0.4s ease-out;
+}
+.death-box h2 {
+  font-size: 3rem;
+  color: var(--blood);
+  text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
+  margin-bottom: 0.8rem;
+}
+.death-box p {
+  font-size: 1.2rem;
+  color: var(--cream);
+  margin-bottom: 0.4rem;
+}
+.death-box .menu-btn {
+  margin-top: 1rem;
+  margin-inline: 0.4rem;
+  pointer-events: all;
+}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--leather); border-radius: 4px; }
