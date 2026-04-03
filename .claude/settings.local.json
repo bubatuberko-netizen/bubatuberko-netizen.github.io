@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(where python:*)",
+      "Bash(where npx:*)",
+      "Bash(python -m http.server --help)",
+      "Bash(python3 -m http.server --help)",
+      "Bash(where node:*)",
+      "Bash(/c/Users/warzo/AppData/Local/Microsoft/WindowsApps/python3 --version)",
+      "Bash(ls /c/Program*/nodejs/npx.cmd)",
+      "Bash(ls /c/Program*/nodejs/node.exe)",
+      "Read(//c/Users/warzo/Desktop/site/$APPDATA/npm/**)",
+      "Read(//c/Users/warzo/Desktop/site/$NVM_HOME/**)",
+      "Bash(PATH=\"$PATH:/c/Program Files/nodejs\" which npx)",
+      "Bash(cmd.exe //c \"where node\")",
+      "Bash(cmd.exe //c \"where npx\")",
+      "Bash(start \"\" \"C:/Users/warzo/Desktop/site/index.html\")",
+      "Bash(where npx.cmd)",
+      "Read(//c/Program Files/nodejs/**)",
+      "Read(//c/Users/warzo/Desktop/site/$LOCALAPPDATA/fnm*/node*/**)",
+      "Read(//c/Users/warzo/Desktop/site/$HOME/.nvm*/v*/bin/**)",
+      "Read(//c//**)",
+      "Bash(cmd.exe //c \"where npx.cmd\")",
+      "Bash(cmd.exe //c \"where node.exe\")"
+    ]
+  }
+}
