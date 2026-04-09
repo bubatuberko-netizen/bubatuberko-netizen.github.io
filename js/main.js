@@ -6,18 +6,24 @@
 
 (function boot() {
 
-  // Initialize game engine (sets up canvas, input)
   Game.init();
 
-  // Initialize UI with callbacks
   UI.init({
     onPlay() {
       const classKey = UI.getSelectedClass();
       Game.start(classKey);
+    },
+    onPause() {
+      Game.togglePause();
+    },
+    onResume() {
+      Game.resume();
+    },
+    onQuitToMenu() {
+      Game.stop();
     }
   });
 
-  // Show main menu on load
   UI.showMenu();
 
 })();

@@ -18,6 +18,7 @@ const UI = (() => {
   const usernameInput    = $('#username-input');
   const usernameError    = $('#username-error');
   const deathOverlay     = $('#death-overlay');
+  const pauseOverlay     = $('#pause-overlay');
 
   const hudClassName     = $('#hud-class-name');
   const hudHealthFill    = $('#hud-health-fill');
@@ -45,13 +46,20 @@ const UI = (() => {
     screen.classList.add('active');
   }
 
-  function showMenu()        { showScreen(menuScreen); }
+  function showMenu()        { showScreen(menuScreen); hidePause(); }
   function showClassSelect() { showScreen(classScreen); }
   function showLeaderboard() {
     renderLeaderboard();
     showScreen(leaderboardScreen);
   }
-  function showGame()        { showScreen(gameScreen); deathOverlay.classList.add('hidden'); }
+  function showGame()        {
+    showScreen(gameScreen);
+    deathOverlay.classList.add('hidden');
+    hidePause();
+  }
+
+  function showPause() { pauseOverlay.classList.remove('hidden'); }
+  function hidePause() { pauseOverlay.classList.add('hidden'); }
 
   function showUsernameModal() {
     usernameInput.value = username;
@@ -216,6 +224,26 @@ const UI = (() => {
 
     $('#btn-to-menu').addEventListener('click', () => {
       Utils.AudioMgr.playClick();
+      if (callbacks.onQuitToMenu) callbacks.onQuitToMenu();
+      showMenu();
+    });
+
+    // HUD menu button — pause the game
+    $('#btn-hud-menu').addEventListener('click', () => {
+      Utils.AudioMgr.playClick();
+      if (callbacks.onPause) callbacks.onPause();
+    });
+
+    // Pause overlay — Resume
+    $('#btn-resume').addEventListener('click', () => {
+      Utils.AudioMgr.playClick();
+      if (callbacks.onResume) callbacks.onResume();
+    });
+
+    // Pause overlay — Main Menu
+    $('#btn-pause-menu').addEventListener('click', () => {
+      Utils.AudioMgr.playClick();
+      if (callbacks.onQuitToMenu) callbacks.onQuitToMenu();
       showMenu();
     });
 
@@ -228,6 +256,7 @@ const UI = (() => {
   return {
     init,
     showMenu, showGame, showDeath,
+    showPause, hidePause,
     updateHUD, initHUD,
     getUsername, getSelectedClass,
     triggerShake

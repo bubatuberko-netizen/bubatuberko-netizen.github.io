@@ -1,6 +1,6 @@
 /* ===================================================
-   ai.js — Zombie AI: walk toward player, jump, attack
-   Simple state machine: wander / chase / attack
+   ai.js — Zombie AI: always aggressive.
+   Supports melee walkers and ranged shooters.
    =================================================== */
 
 'use strict';
@@ -8,103 +8,139 @@
 const AI = (() => {
 
   const STATE = {
-    WANDER: 'wander',
     CHASE:  'chase',
-    ATTACK: 'attack'
+    ATTACK: 'attack',
+    KITE:   'kite'   // shooters keeping distance
   };
 
-  const DETECT_RANGE = 400;
-  const ATTACK_RANGE = 40;   // melee distance
-  const LOSE_RANGE   = 700;
+  // Shooters engage from range
+  const MELEE_RANGE   = 42;
+  const RANGED_MIN    = 260;   // shooters try to stay at least this far
+  const RANGED_MAX    = 520;   // but within this range
 
   function createAI() {
     return {
-      state: STATE.WANDER,
-      wanderDir: Math.random() < 0.5 ? -1 : 1,
-      wanderTimer: Utils.randFloat(1, 3),
-      attackCooldown: 0,
+      state: STATE.CHASE,
+      attackCooldown: Math.random() * 0.5,   // stagger first shot
       thinkTimer: 0,
-      jumpCooldown: 0
+      jumpCooldown: Math.random() * 1.5
     };
   }
 
   /**
-   * Update zombie AI. Returns melee damage dealt this frame (0 if none).
+   * Update zombie AI.
+   * @returns {{meleeDamage: number, bullets: Array}}
    */
   function update(enemy, player, dt) {
     const ai = enemy.ai;
-    if (ai.attackCooldown > 0) ai.attackCooldown -= dt;
-    if (ai.thinkTimer > 0) ai.thinkTimer -= dt;
-    if (ai.jumpCooldown > 0) ai.jumpCooldown -= dt;
+    const result = { meleeDamage: 0, bullets: [] };
 
-    const dx = player.x + player.w / 2 - (enemy.x + enemy.w / 2);
-    const dy = player.y - enemy.y;
-    const dist = Math.abs(dx);
+    if (ai.attackCooldown > 0) ai.attackCooldown -= dt;
+    if (ai.thinkTimer > 0)    ai.thinkTimer -= dt;
+    if (ai.jumpCooldown > 0)  ai.jumpCooldown -= dt;
+
+    const ex = enemy.x + enemy.w / 2;
+    const ey = enemy.y + enemy.h / 2;
+    const px = player.x + player.w / 2;
+    const py = player.y + player.h / 2;
+    const dx = px - ex;
+    const dy = py - ey;
+    const dist = Math.sqrt(dx * dx + dy * dy);
     const playerAlive = player.alive;
 
-    // --- State transitions ---
-    if (ai.thinkTimer <= 0) {
-      ai.thinkTimer = 0.25;
-
-      switch (ai.state) {
-        case STATE.WANDER:
-          if (playerAlive && dist < DETECT_RANGE) ai.state = STATE.CHASE;
-          break;
-        case STATE.CHASE:
-          if (!playerAlive || dist > LOSE_RANGE) {
-            ai.state = STATE.WANDER;
-            ai.wanderTimer = Utils.randFloat(1, 3);
-          } else if (dist < ATTACK_RANGE) {
-            ai.state = STATE.ATTACK;
-          }
-          break;
-        case STATE.ATTACK:
-          if (!playerAlive || dist > ATTACK_RANGE * 2) ai.state = STATE.CHASE;
-          break;
-      }
+    if (!playerAlive) {
+      // Wander lazily if player is dead
+      enemy.vx = 0;
+      return result;
     }
 
-    let meleeDamage = 0;
+    // --- State selection ---
+    if (ai.thinkTimer <= 0) {
+      ai.thinkTimer = 0.2;
+      if (enemy.isRanged) {
+        // Shooter: engage if within range
+        if (dist < RANGED_MIN) ai.state = STATE.KITE;
+        else if (dist <= RANGED_MAX) ai.state = STATE.ATTACK;
+        else ai.state = STATE.CHASE;
+      } else {
+        // Melee: chase until in range
+        if (dist < MELEE_RANGE) ai.state = STATE.ATTACK;
+        else ai.state = STATE.CHASE;
+      }
+    }
 
     // --- Behavior ---
     switch (ai.state) {
 
-      case STATE.WANDER:
-        ai.wanderTimer -= dt;
-        if (ai.wanderTimer <= 0) {
-          ai.wanderDir *= -1;
-          ai.wanderTimer = Utils.randFloat(1.5, 4);
-        }
-        enemy.vx = ai.wanderDir * enemy.speed * 0.35;
-        enemy.facingRight = ai.wanderDir > 0;
-        break;
-
-      case STATE.CHASE:
-        // Walk toward player
+      case STATE.CHASE: {
+        // Full aggression — run straight at player
         enemy.vx = Math.sign(dx) * enemy.speed;
         enemy.facingRight = dx > 0;
-
-        // Jump if player is above and zombie is grounded
+        // Jump if player is above or if close to vertical obstacle
         if (dy < -60 && enemy.grounded && ai.jumpCooldown <= 0) {
           enemy.vy = -enemy.jumpForce;
           enemy.grounded = false;
-          ai.jumpCooldown = 1.2;
+          ai.jumpCooldown = 1.0;
         }
         break;
+      }
 
-      case STATE.ATTACK:
-        // Slow down and attack
-        enemy.vx = Math.sign(dx) * enemy.speed * 0.2;
+      case STATE.ATTACK: {
         enemy.facingRight = dx > 0;
 
-        if (ai.attackCooldown <= 0) {
-          meleeDamage = enemy.damage;
-          ai.attackCooldown = 1 / enemy.attackRate;
+        if (enemy.isRanged) {
+          // Shooter: stand still, fire at player
+          enemy.vx = Math.sign(dx) * enemy.speed * 0.15;
+          if (ai.attackCooldown <= 0 && enemy.grounded) {
+            ai.attackCooldown = 1 / enemy.attackRate;
+            const a = Math.atan2(dy, dx);
+            result.bullets.push({
+              x: ex + Math.cos(a) * 22,
+              y: ey + Math.sin(a) * 8,
+              vx: Math.cos(a) * (enemy.bulletSpeed || 400),
+              vy: Math.sin(a) * (enemy.bulletSpeed || 400),
+              damage: enemy.damage,
+              radius: 4,
+              color: '#aaff44',    // sickly green acid projectile
+              life: 1.8,
+              isPlayer: false
+            });
+          }
+        } else {
+          // Melee: close the gap while swinging
+          enemy.vx = Math.sign(dx) * enemy.speed * 0.3;
+          if (ai.attackCooldown <= 0) {
+            ai.attackCooldown = 1 / enemy.attackRate;
+            result.meleeDamage = enemy.damage;
+          }
         }
         break;
+      }
+
+      case STATE.KITE: {
+        // Shooter too close — back away while still firing
+        enemy.vx = -Math.sign(dx) * enemy.speed * 0.7;
+        enemy.facingRight = dx > 0;
+        if (ai.attackCooldown <= 0 && enemy.grounded) {
+          ai.attackCooldown = 1 / enemy.attackRate;
+          const a = Math.atan2(dy, dx);
+          result.bullets.push({
+            x: ex + Math.cos(a) * 22,
+            y: ey + Math.sin(a) * 8,
+            vx: Math.cos(a) * (enemy.bulletSpeed || 400),
+            vy: Math.sin(a) * (enemy.bulletSpeed || 400),
+            damage: enemy.damage,
+            radius: 4,
+            color: '#aaff44',
+            life: 1.8,
+            isPlayer: false
+          });
+        }
+        break;
+      }
     }
 
-    return meleeDamage;
+    return result;
   }
 
   return { createAI, update, STATE };

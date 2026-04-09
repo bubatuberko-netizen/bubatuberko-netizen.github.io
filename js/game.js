@@ -15,8 +15,9 @@ const Game = (() => {
   const PX       = 4;      // pixel-art block size for background
   const PLAT_H   = 12;     // platform thickness
 
-  const ENEMIES_PER_WAVE_BASE = 5;
-  const ENEMIES_PER_WAVE_GROWTH = 3;
+  const ENEMIES_PER_WAVE_BASE = 8;
+  const ENEMIES_PER_WAVE_GROWTH = 4;
+  const MAX_CONCURRENT_ENEMIES = 14;
 
   /* Platforms — wooden planks at various heights */
   const PLATFORMS = [
@@ -35,6 +36,7 @@ const Game = (() => {
   /* ---------- State ---------- */
   let canvas, ctx;
   let running = false;
+  let paused = false;
   let lastTime = 0;
   let player = null;
   let enemies = [];
@@ -91,7 +93,14 @@ const Game = (() => {
   /* ---------- Input ---------- */
 
   function bindInput() {
-    window.addEventListener('keydown', e => { input.keys[e.key.toLowerCase()] = true; });
+    window.addEventListener('keydown', e => {
+      input.keys[e.key.toLowerCase()] = true;
+      // ESC toggles pause
+      if (e.key === 'Escape' && running) {
+        togglePause();
+        e.preventDefault();
+      }
+    });
     window.addEventListener('keyup',   e => { input.keys[e.key.toLowerCase()] = false; });
     canvas.addEventListener('mousemove', e => {
       input.mouseX = e.clientX;
@@ -117,12 +126,14 @@ const Game = (() => {
     score = 0;
     wave = 1;
     spawnTimer = 0;
+    paused = false;
     bulletPool.releaseAll();
     particlePool.releaseAll();
 
     startWave();
     UI.initHUD(classDef.name);
     UI.showGame();
+    UI.hidePause();
 
     running = true;
     lastTime = performance.now();
@@ -131,8 +142,25 @@ const Game = (() => {
 
   function stop() {
     running = false;
+    paused = false;
     input.mouseDown = false;
     input.keys = {};
+    UI.hidePause();
+  }
+
+  function togglePause() {
+    paused = !paused;
+    if (paused) {
+      input.mouseDown = false;
+      UI.showPause();
+    } else {
+      UI.hidePause();
+      lastTime = performance.now(); // avoid huge dt jump
+    }
+  }
+
+  function resume() {
+    if (paused) togglePause();
   }
 
   /* ---------- Waves ---------- */
@@ -152,7 +180,7 @@ const Game = (() => {
     if (dt > 0.05) dt = 0.05;
     lastTime = timestamp;
 
-    update(dt);
+    if (!paused) update(dt);
     render();
     requestAnimationFrame(loop);
   }
@@ -173,13 +201,17 @@ const Game = (() => {
       Object.assign(b, pb, { active: true });
     });
 
-    // Enemy spawning
-    if (enemiesSpawned < enemiesInWave) {
+    // Enemy spawning — faster and in batches for aggression
+    if (enemiesSpawned < enemiesInWave && enemies.length < MAX_CONCURRENT_ENEMIES) {
       spawnTimer -= dt;
       if (spawnTimer <= 0) {
-        enemies.push(EnemyModule.create(wave, WORLD_W, GROUND_Y, player.x));
-        enemiesSpawned++;
-        spawnTimer = Math.max(0.4, 2 - wave * 0.1);
+        // Spawn 1-2 at a time in later waves
+        const batchSize = wave >= 3 ? (Math.random() < 0.5 ? 2 : 1) : 1;
+        for (let i = 0; i < batchSize && enemiesSpawned < enemiesInWave; i++) {
+          enemies.push(EnemyModule.create(wave, WORLD_W, GROUND_Y, player.x));
+          enemiesSpawned++;
+        }
+        spawnTimer = Math.max(0.25, 1.2 - wave * 0.12);
       }
     }
 
@@ -188,18 +220,26 @@ const Game = (() => {
       if (!enemy.alive) return;
       enemy.invulnTimer -= dt;
 
-      // AI returns melee damage
-      const meleeDmg = AI.update(enemy, player, dt);
+      // AI returns melee damage + bullets
+      const aiResult = AI.update(enemy, player, dt);
 
-      // Apply melee damage
-      if (meleeDmg > 0 && player.alive) {
-        // Check if close enough to actually hit
+      // Spawn any bullets the AI wants to fire
+      if (aiResult.bullets.length > 0) {
+        aiResult.bullets.forEach(eb => {
+          const b = bulletPool.acquire();
+          Object.assign(b, eb, { active: true });
+        });
+        Utils.AudioMgr.playShoot();
+      }
+
+      // Apply melee damage (on touch)
+      if (aiResult.meleeDamage > 0 && player.alive) {
         const ex = enemy.x + enemy.w / 2;
         const px = player.x + player.w / 2;
-        const dist = Math.abs(ex - px);
-        const vertDist = Math.abs(enemy.y - player.y);
-        if (dist < 50 && vertDist < 60) {
-          PlayerModule.takeDamage(player, meleeDmg);
+        const horiz = Math.abs(ex - px);
+        const vert = Math.abs((enemy.y + enemy.h / 2) - (player.y + player.h / 2));
+        if (horiz < (enemy.w + player.w) / 2 + 6 && vert < (enemy.h + player.h) / 2 + 6) {
+          PlayerModule.takeDamage(player, aiResult.meleeDamage);
           UI.triggerShake();
           spawnHitParticles(player.x + player.w / 2, player.y + player.h / 2, '#ff4444');
           if (!player.alive) {
@@ -209,8 +249,8 @@ const Game = (() => {
         }
       }
 
-      // Physics
-      EnemyModule.applyPhysics(enemy, dt, GRAVITY, GROUND_Y, PLATFORMS);
+      // Physics (now includes world-bounds clamping)
+      EnemyModule.applyPhysics(enemy, dt, GRAVITY, WORLD_W, GROUND_Y, PLATFORMS);
     });
 
     // Bullets
@@ -242,6 +282,20 @@ const Game = (() => {
             }
             toRelease.push(b);
             break;
+          }
+        }
+      }
+      // Enemy bullets vs player
+      else if (player.alive) {
+        if (Utils.rectOverlap(b.x - b.radius, b.y - b.radius, b.radius * 2, b.radius * 2,
+                              player.x, player.y, player.w, player.h)) {
+          PlayerModule.takeDamage(player, b.damage);
+          spawnHitParticles(b.x, b.y, '#aaff44');
+          UI.triggerShake();
+          toRelease.push(b);
+          if (!player.alive) {
+            Utils.AudioMgr.playDeath();
+            onPlayerDeath();
           }
         }
       }
@@ -671,5 +725,5 @@ const Game = (() => {
   }
 
   /* ---------- Public API ---------- */
-  return { init, start, stop };
+  return { init, start, stop, togglePause, resume };
 })();
