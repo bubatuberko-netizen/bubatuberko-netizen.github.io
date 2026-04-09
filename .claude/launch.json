@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "game",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "."],
+      "runtimeExecutable": "C:/Users/warzo/AppData/Local/Python/bin/python.exe",
+      "runtimeArgs": ["-m", "http.server", "3000", "--bind", "127.0.0.1"],
       "port": 3000
     }
   ]
