@@ -401,6 +401,66 @@ body {
   100% { transform: translate(0, 0); }
 }
 
+/* ---------- HUD Menu Button ---------- */
+.hud-menu-btn {
+  pointer-events: all;
+  margin-top: 4px;
+  padding: 4px 12px;
+  font-family: Georgia, serif;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  background: linear-gradient(180deg, var(--leather) 0%, var(--leather-dk) 100%);
+  color: var(--cream);
+  border: 1px solid var(--sand-dark);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.hud-menu-btn:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+.hud-menu-btn:active { transform: translateY(0); }
+
+/* ---------- Pause Overlay ---------- */
+#pause-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 30;
+  backdrop-filter: blur(4px);
+}
+#pause-overlay.hidden { display: none; }
+.pause-box {
+  text-align: center;
+  background: linear-gradient(180deg, #5c3a1e, #3a2010);
+  border: 2px solid var(--sand-dark);
+  border-radius: 10px;
+  padding: 2rem 3rem;
+  animation: modalIn 0.25s ease-out;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+.pause-box h2 {
+  font-size: 2.4rem;
+  color: var(--gold);
+  text-shadow: 2px 2px 0 var(--leather-dk);
+  margin-bottom: 0.4rem;
+  letter-spacing: 4px;
+}
+.pause-box .pause-hint {
+  font-size: 0.85rem;
+  color: var(--sand);
+  font-style: italic;
+  margin-bottom: 1.2rem;
+}
+.pause-box .menu-btn {
+  margin-top: 0.4rem;
+  display: block;
+  margin-inline: auto;
+  pointer-events: all;
+}
+
 /* ---------- Death Overlay ---------- */
 #death-overlay {
   position: fixed; inset: 0;
